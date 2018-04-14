@@ -84,7 +84,6 @@ if __name__=='__main__':
   celeba = CelebAInput()
   input_fn = celeba.input_fn_factory(mode='train', batch_size=2)
 
-  
   with tf.Session() as sess:
     image = input_fn()
     

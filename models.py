@@ -1,5 +1,3 @@
-'''put models here
-'''
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -10,6 +8,13 @@ import glob
 import numpy as np
 import tensorflow as tf
  
+
+def train():
+  x = tf.placeholder(tf.float32, (None, 218, 178, 3))
+  y = tf.placeholder(tf.float32, (None
+  loss = model_test(
+  for i_epochs in range(epochs):
+     
 
 def model_test(features, mode):
   '''A simple model, should get about 65% accuracy on CIFAR-10
