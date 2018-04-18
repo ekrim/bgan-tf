@@ -16,7 +16,7 @@ def train(epochs=10):
   
   input_fn = CelebAInput().input_fn_factory(
     mode='train', 
-    batch_size=64)
+    batch_size=2)
 
   image = input_fn()  
   output = model_test(image, mode='train')
@@ -30,17 +30,19 @@ def train(epochs=10):
       cnt += 1
      
 
-def model_test(features, mode):
+def discriminator(features, dim_h):
   '''A simple model, should get about 65% accuracy on CIFAR-10
   '''
-  tf.summary.image('images', features['image'], max_outputs=3)
+  tf.summary.image('images', features['image'], max_outputs=4) 
 
-  conv1 = tf.layers.conv2d(
+  x = tf.layers.conv2d(
     inputs=features['image'],
-    filters=96,
+    filters=dim_h,
     kernel_size=[3,3],
     padding="valid",
-    activation=tf.nn.relu)
+    activation=None)
+
+  x = tf.nn.leaky_relu(conv1, alpha=0.01)
 
   pool1 = tf.layers.average_pooling2d(
     inputs=conv1,
@@ -68,89 +70,6 @@ def model_test(features, mode):
 
   return logits 
 
-
-def model_all_cnn_c(features, mode):
-  '''The all convolutional net ALL-CNN-C
-  https://arxiv.org/abs/1412.6806
-  '''
-  tf.summary.image('images', features['image'], max_outputs=1)
-
-  use_dropout = mode == tf.estimator.ModeKeys.TRAIN
-
-  drop1 = tf.layers.dropout(features['image'], rate=0.2, training=use_dropout)
-
-  conv1 = tf.layers.conv2d(
-    inputs=drop1,
-    filters=96,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
-  
-  conv2 = tf.layers.conv2d(
-    inputs=conv1,
-    filters=96,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  conv3 = tf.layers.conv2d(
-    inputs=conv2,
-    filters=96,
-    kernel_size=[3,3],
-    padding="valid",
-    strides=(2,2),
-    activation=tf.nn.relu)
-
-  drop2 = tf.layers.dropout(conv3, rate=0.5, training=use_dropout)
-
-  conv4 = tf.layers.conv2d(
-    inputs=drop2,
-    filters=192,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  conv5 = tf.layers.conv2d(
-    inputs=conv4,
-    filters=192,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  conv6 = tf.layers.conv2d(
-    inputs=conv5,
-    filters=192,
-    kernel_size=[3,3],
-    padding="valid",
-    strides=(2,2),
-    activation=tf.nn.relu)
-
-  drop3 = tf.layers.dropout(conv6, rate=0.5, training=use_dropout)
-
-  conv7 = tf.layers.conv2d(
-    inputs=drop3,
-    filters=192,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  conv8 = tf.layers.conv2d(
-    inputs=conv7,
-    filters=192,
-    kernel_size=[1,1],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  conv9 = tf.layers.conv2d(
-    inputs=conv8,
-    filters=10,
-    kernel_size=[1,1],
-    padding="valid",
-    activation=tf.nn.relu)
-
-  logits = tf.reduce_mean(conv9, [1,2])  
-  return logits
-  
 
 def model_fn_closure(model_name='test'):
   '''model_name is one of "test" or "all_cnn"
