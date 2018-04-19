@@ -55,7 +55,7 @@ class CelebAInput:
       # - reinitializable iterator
       # - add noise
       image = dataset.make_one_shot_iterator().get_next()
-      return {'image': image} 
+      return image
 
     return input_fn
     
@@ -79,7 +79,6 @@ class CelebAInput:
                 method=tf.image.ResizeMethod.BICUBIC)
 
       return image
-
     return parser_fn
 
 
@@ -91,5 +90,5 @@ if __name__=='__main__':
     image = input_fn()
     
     for i in range(10):
-      images = sess.run(image['image'])
+      images = sess.run(image)
       print(images.shape)
