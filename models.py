@@ -31,44 +31,76 @@ def train(epochs=10):
      
 
 def discriminator(features, dim_h):
-  '''A simple model, should get about 65% accuracy on CIFAR-10
+  '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
+    
+  NOTE: with batchnorm, put the train op within controlled
+  dependencies for update ops
   '''
   tf.summary.image('images', features['image'], max_outputs=4) 
+
+  training_ph = tf.placeholder(tf.bool, ())
+  tf.add_to_collection('training', training_ph)
 
   x = tf.layers.conv2d(
     inputs=features['image'],
     filters=dim_h,
-    kernel_size=[3,3],
-    padding="valid",
+    kernel_size=(5,5),
+    strides=(2,2),
+    padding='same',
     activation=None)
 
-  x = tf.nn.leaky_relu(conv1, alpha=0.01)
+  x = tf.nn.leaky_relu(x, alpha=0.01)
 
-  pool1 = tf.layers.average_pooling2d(
-    inputs=conv1,
-    pool_size=[3,3],
-    strides=3)
+  x = tf.layers.conv2d(
+    inputs=x,
+    filters=dim_h*2,
+    kernel_size=(5,5),
+    strides=(2,2),
+    padding='same',
+    activation=None)
 
-  conv2 = tf.layers.conv2d(
-    inputs=pool1,
-    filters=32,
-    kernel_size=[3,3],
-    padding="valid",
-    activation=tf.nn.relu)
+  x = tf.nn.leaky_relu(x, alpha=0.01)
 
-  pool2 = tf.layers.average_pooling2d(
-    inputs=conv2,
-    pool_size=[2,2],
-    strides=2)
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
 
-  flat1 = x = tf.reshape(pool2, [-1, 32*4*4])
-  
-  for i in range(10):
-    x = tf.layers.dense(inputs=x, units=144)
-  
-  logits = tf.layers.dense(inputs=x, units=10)
+  x = tf.layers.conv2d(
+    inputs=x,
+    filters=dim_h*4,
+    kernel_size=(5,5),
+    strides=(2,2),
+    padding='same',
+    activation=None)
 
-  return logits 
+  x = tf.nn.leaky_relu(x, alpha=0.01)
+
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
+
+  x = tf.layers.conv2d(
+    inputs=x,
+    filters=dim_h*8,
+    kernel_size=(5,5),
+    strides=(2,2),
+    padding='same',
+    activation=None)
+
+  x = tf.nn.leaky_relu(x, alpha=0.01)
+
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
+
+  x = tf.reshape(x, [-1, dim_h*8*4*4])
+    
+  logits = tf.layers.dense(inputs=x, activation=None, units=1)
+
+  return logits
 
 
 def model_fn_closure(model_name='test'):
@@ -124,7 +156,8 @@ def model_fn_closure(model_name='test'):
 
 
 if __name__=="__main__":
-  train()
+  x = tf.placeholder(tf.float32, (None, 64, 64, 3))
+  discriminator({'image':x}, 10)
   #features = {
   #  "image": tf.placeholder(tf.float32, (None, 32, 32, 3))}
   #labels = tf.placeholder(tf.int32, (None, 1))
