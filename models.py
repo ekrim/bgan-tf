@@ -30,17 +30,12 @@ def train(epochs=10):
       cnt += 1
      
 
-def discriminator(features, dim_h):
+def discriminator(features, training_ph, dim_h):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
   dependencies for update ops
   '''
-  tf.summary.image('images', features['image'], max_outputs=4) 
-
-  training_ph = tf.placeholder(tf.bool, ())
-  tf.add_to_collection('training', training_ph)
-
   x = tf.layers.conv2d(
     inputs=features['image'],
     filters=dim_h,
@@ -102,6 +97,53 @@ def discriminator(features, dim_h):
 
   return logits
 
+
+def generator(input_z, training_ph, dim_h, dim_z):
+  '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
+    
+  NOTE: with batchnorm, put the train op within controlled
+  dependencies for update ops
+  '''
+
+  x = tf.layers.dense(
+    inputs=input_z, 
+    activation=None, 
+    units=dim_h*8*4*4)
+
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
+
+  x = tf.reshape(x, [-1, 4, 4, dim_h*8])
+
+  x = tf.nn.conv2d_transpose(
+    x,
+    (
+    layer = batch_norm(Deconv2DLayer(
+            layer, dim_h * 4, 5, stride=2, pad=2))
+
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
+
+  x = tf.nn.leaky_relu(x, alpha=0.01)
+
+  x = tf.layers.conv2d(
+    inputs=x,
+    filters=dim_h*2,
+    kernel_size=(5,5),
+    strides=(2,2),
+    padding='same',
+    activation=None)
+
+  x = tf.nn.leaky_relu(x, alpha=0.01)
+
+  x = tf.layers.batch_normalization(
+    x,
+    axis=-1,
+    training=training_ph)
 
 def model_fn_closure(model_name='test'):
   '''model_name is one of "test" or "all_cnn"
