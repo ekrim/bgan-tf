@@ -19,6 +19,8 @@ def train(epochs=10):
 
   image = input_fn()  
   output = model_test(image, mode='train')
+
+  tf.Session(
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     #for i_epoch in range(epochs):

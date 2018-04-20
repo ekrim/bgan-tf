@@ -14,7 +14,7 @@ def make_bn(training_ph):
   return bn
 
 
-def discriminator(images, training_ph, dim_h):
+def discriminator(images, training_ph, dim_h=128):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
@@ -32,17 +32,18 @@ def discriminator(images, training_ph, dim_h):
 
     return tf.nn.leaky_relu(x, alpha=0.01)
 
-  x = conv_lrelu(images, dim_h)
-  x = bn(conv_lrelu(x, dim_h*2))
-  x = bn(conv_lrelu(x, dim_h*4))
-  x = bn(conv_lrelu(x, dim_h*8))
-  x = tf.reshape(x, [-1, dim_h*8*4*4])
-  logits = tf.layers.dense(inputs=x, activation=None, units=1)
+  with tf.variable_scope('discriminator'):
+    x = conv_lrelu(images, dim_h)
+    x = bn(conv_lrelu(x, dim_h*2))
+    x = bn(conv_lrelu(x, dim_h*4))
+    x = bn(conv_lrelu(x, dim_h*8))
+    x = tf.reshape(x, [-1, dim_h*8*4*4])
+    logits = tf.layers.dense(inputs=x, activation=None, units=1)
 
   return logits
 
 
-def generator(input_z, training_ph, dim_h):
+def generator(input_z, training_ph, dim_h=128):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
@@ -50,14 +51,16 @@ def generator(input_z, training_ph, dim_h):
   '''
   bn = make_bn(training_ph)
 
-  x = bn(tf.layers.dense(inputs=input_z, units=dim_h*8*4*4))
-  x = tf.reshape(x, [-1, 4, 4, dim_h*8])
-  x = bn(tf.layers.conv2d_transpose(x, dim_h*4, 5, strides=2, padding='same'))
-  x = bn(tf.layers.conv2d_transpose(x, dim_h*2, 5, strides=2, padding='same'))
-  x = bn(tf.layers.conv2d_transpose(x, dim_h, 5, strides=2, padding='same'))
-  x = tf.layers.conv2d_transpose(x, 3, 5, strides=2, padding='same')
+  with tf.variable_scope('generator'):
+    x = bn(tf.layers.dense(inputs=input_z, units=dim_h*8*4*4))
+    x = tf.reshape(x, [-1, 4, 4, dim_h*8])
+    x = bn(tf.layers.conv2d_transpose(x, dim_h*4, 5, strides=2, padding='same'))
+    x = bn(tf.layers.conv2d_transpose(x, dim_h*2, 5, strides=2, padding='same'))
+    x = bn(tf.layers.conv2d_transpose(x, dim_h, 5, strides=2, padding='same'))
+    x = tf.layers.conv2d_transpose(x, 3, 5, strides=2, padding='same')
+    x = tf.nn.tanh(x)
 
-  return tf.nn.tanh(x)
+  return x
 
 
 if __name__=="__main__":
@@ -68,6 +71,8 @@ if __name__=="__main__":
   y_gen = generator(x_gen, training_ph, 4)  
 
   with tf.Session() as sess:
+    tf.summary.FileWriter('./', sess.graph).close()
+
     sess.run(tf.global_variables_initializer())
     x1 = np.random.randn(2,64,64,3).astype(np.float32)
     x2 = np.random.randn(2,64).astype(np.float32)
