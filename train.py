@@ -8,7 +8,34 @@ import numpy as np
 import tensorflow as tf
  
 
-def train(epochs=10):
+HEIGHT = 64
+WIDTH = 64
+CHANNELS = 3
+
+
+class PredictionBuffer:
+  '''Generated images are added to this buffer
+  The discriminator trains on a mix of freshly generated images
+  and images from this buffer
+  '''
+  def __init__(self, buffer_sz):
+    self.buffer_sz = buffer_sz
+    self.buffer = np.zeros((buffer_sz, HEIGHT, WIDTH, CHANNELS), dtype=np.float32)
+    self.cnt = 0 
+  
+  def add(self, x):
+    if self.cnt < self.buffer_sz:
+      self.buffer[self.cnt:min(self.cnt+x.shape[0], self.buffer_sz)] = x
+    else:
+       
+      
+
+  def sample(self, batch_size):
+    idx = np.random.choice(self.cnt, batch_size, replace=True)
+    return self.buffer[idx]
+
+
+def train(epochs=10, dis_buffer=32768):
   x = tf.placeholder(tf.float32, (None, 218, 178, 3))
   y = tf.placeholder(tf.float32, (None, 10))
   training_ph = tf.placeholder(tf.bool, ())
