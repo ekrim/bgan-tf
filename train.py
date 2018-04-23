@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from data_pipeline import CelebAInput
-from models import generator, \
+from models import erator, \
                    discriminator
  
 
@@ -17,9 +17,14 @@ WIDTH = 64
 CHANNELS = 3
 
 
+def bgan_class():
+  _loss
+  pass
+
+
 class ImageBuffer:
   '''Generated images are added to this buffer
-  The discriminator trains on a mix of freshly generated images
+  The discriminator trains on a mix of freshly erated images
   and images from this buffer
   '''
   def __init__(self, buffer_sz):
@@ -45,38 +50,43 @@ def train(batch_size=256, epochs=10, dim_z=128, buffer_sz=32768):
   dim_h = 128
   # placeholders
   z_ph = tf.placeholder(tf.float32, (None, dim_z))
-  dis_target_ph = tf.placeholder(tf.float32, (None, 1))
+  D_target_ph = tf.placeholder(tf.float32, (None, 1))
   training_ph = tf.placeholder(tf.bool, ())
   
-  # build the input
-  input_fn = CelebAInput().input_fn(
-    mode='train', 
-    batch_size=2)
-
-  # input and output tensors
+  # build the input image iterator
   image_tens, iterator = CelebAInput().input_fn(
     mode='train', 
     batch_size=batch_size,
     epochs=epochs)
 
-  dis_logits = discriminator(image_tens, training_ph, dim_h=dim_h)
-  gen_image = generator(z_ph, training_ph, dim_h=dim_h)
+  # discriminator, generator, and generator score
+  D_logits = discriminator(image_tens, training_ph, dim_h=dim_h)
+  G_image = generator(z_ph, training_ph, dim_h=dim_h)
+  D_fake = discriminator(G_image)
 
-  # buffer of generated images
+  # prepare losses
+  D_loss = tf.nn.softplu-
+  G_loss = tf.reduce_mean(tf.square(D_fake))
+
+  # buffer of erated images
   old_images = ImageBuffer(buffer_sz=buffer_sz)
 
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     sess.run(iterator.initializer)
+    cnt = 0 
     while True:
       try:
-        #x = sess.run(dis_logits, feed_dict={training_ph:False})
-        x = sess.run(gen_image, feed_dict={z_ph: np.random.randn(batch_size, dim_z).astype(np.float32), training_ph:False})
+        #x = sess.run(D_logits, feed_dict={training_ph:False})
+        x = sess.run(_image, feed_dict={z_ph: np.random.randn(batch_size, dim_z).astype(np.float32), training_ph:False})
         print(x.shape)
+        cnt += x.shape[0]
+        print(cnt)
       except tf.errors.OutOfRangeError:
         break
+    print(cnt)
 
 
 if __name__=='__main__':
 
-  train(batch_size=512, epochs=1, dim_z=128, buffer_sz=32768)
+  train(batch_size=2048, epochs=1, dim_z=128, buffer_sz=32768)

@@ -19,40 +19,54 @@ class CelebAInput:
     self.WIDTH = crop_size
     self.DEPTH = 3
     
-    self.read_buffer = 8*1024*1024
-    self.shuffle_buffer = 10000
+    self.read_buffer = 3*64*64*2**13
+    self.shuffle_buffer = 2**15
     self.file_list = ['data/img_align_celeba.tfrecords']
 
   def input_fn(self, mode='test', epochs=1, batch_size=64):
     file_list = self.file_list
     if type(file_list) is list and len(file_list)>1:
+      print('\n***processing in multiple file interleave mode***\n')
       file_list = self.file_list
       dataset = tf.data.Dataset.list_files(file_list, shuffle=True)
     
       if mode == 'train':
-        dataset = dataset.shuffle(buffer_size=min(len(file_list), 1024)).repeat()
+        dataset = dataset.shuffle(
+	  buffer_size=min(len(file_list), self.shuffle_buffer)).repeat()
     
       def process_tfrecord(file_name):
-        dataset = tf.data.TFRecordDataset(file_name, buffer_size=self.read_buffer)
+        dataset = tf.data.TFRecordDataset(
+	  file_name, 
+	  buffer_size=self.read_buffer)
         return dataset
 
       dataset = dataset.apply(
         tf.contrib.data.parallel_interleave(
           process_tfrecord, cycle_length=4, sloppy=True))
     else:
-      dataset = tf.data.TFRecordDataset(file_list, buffer_size=self.read_buffer)
+      print('\n*** processing in single file mode ***\n')
+      dataset = tf.data.TFRecordDataset(
+        file_list, 
+	buffer_size=self.read_buffer)
     
     if mode=='train':
-      dataset = dataset.shuffle(self.shuffle_buffer)
+      dataset = dataset.apply(tf.contrib.data.shuffle_and_repeat(
+        self.shuffle_buffer, 
+	count=epochs))
 
-    dataset = dataset.map(self.make_parser(mode), num_parallel_calls=8)
-    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+    dataset = dataset.map(
+      self.make_parser(mode), 
+      num_parallel_calls=8)
 
-    dataset = dataset.repeat(epochs)
+    dataset = dataset.batch(batch_size)
+    #dataset = dataset.apply(
+    #  tf.contrib.data.batch_and_drop_remainder(batch_size))
+
     dataset = dataset.prefetch(batch_size)
    
     iterator = dataset.make_initializable_iterator()
     image = iterator.get_next()
+    
     return image, iterator
     
   def make_parser(self, mode):
@@ -82,11 +96,17 @@ if __name__=='__main__':
 
   image, iterator = CelebAInput().input_fn(
     mode='train', 
-    batch_size=2, 
+    batch_size=2048, 
     epochs=1)
 
   with tf.Session() as sess:
     sess.run(iterator.initializer)
-    for i in range(10):
-      images = sess.run(image)
-      print(images.shape)
+    cnt = 0
+    while True:
+      try:
+        images = sess.run(image)
+        print(images.shape)
+        cnt += images.shape[0]
+        print(cnt)
+      except tf.errors.OutOfRangeError:
+        break
