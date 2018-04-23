@@ -23,41 +23,37 @@ class CelebAInput:
     self.shuffle_buffer = 10000
     self.file_list = ['data/img_align_celeba.tfrecords']
 
-  def make_input_fn(self, mode='test', batch_size=64):
-    def input_fn():
+  def input_fn(self, mode='test', epochs=1, batch_size=64):
+    file_list = self.file_list
+    if type(file_list) is list and len(file_list)>1:
       file_list = self.file_list
-      if type(file_list) is list and len(file_list)>1:
-        file_list = self.file_list
-        dataset = tf.data.Dataset.list_files(file_list)
-      
-        if mode == 'train':
-          dataset = dataset.shuffle(buffer_size=min(len(file_list), 1024)).repeat()
-      
-        def process_tfrecord(file_name):
-          dataset = tf.data.TFRecordDataset(file_name, buffer_size=self.read_buffer)
-          return dataset
-
-        dataset = dataset.apply(
-          tf.contrib.data.parallel_interleave(
-            process_tfrecord, cycle_length=4, sloppy=True))
-      else:
-        dataset = tf.data.TFRecordDataset(file_list, buffer_size=self.read_buffer)
-      
-      if mode=='train':
-        dataset = dataset.shuffle(self.shuffle_buffer)
-
-      dataset = dataset.map(self.make_parser(mode), num_parallel_calls=64)
-      dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
-
-      dataset = dataset.prefetch(batch_size)
+      dataset = tf.data.Dataset.list_files(file_list, shuffle=True)
     
-      # TODO:
-      # - reinitializable iterator
-      # - add noise
-      image = dataset.make_one_shot_iterator().get_next()
-      return image
+      if mode == 'train':
+        dataset = dataset.shuffle(buffer_size=min(len(file_list), 1024)).repeat()
+    
+      def process_tfrecord(file_name):
+        dataset = tf.data.TFRecordDataset(file_name, buffer_size=self.read_buffer)
+        return dataset
 
-    return input_fn
+      dataset = dataset.apply(
+        tf.contrib.data.parallel_interleave(
+          process_tfrecord, cycle_length=4, sloppy=True))
+    else:
+      dataset = tf.data.TFRecordDataset(file_list, buffer_size=self.read_buffer)
+    
+    if mode=='train':
+      dataset = dataset.shuffle(self.shuffle_buffer)
+
+    dataset = dataset.map(self.make_parser(mode), num_parallel_calls=8)
+    dataset = dataset.apply(tf.contrib.data.batch_and_drop_remainder(batch_size))
+
+    dataset = dataset.repeat(epochs)
+    dataset = dataset.prefetch(batch_size)
+   
+    iterator = dataset.make_initializable_iterator()
+    image = iterator.get_next()
+    return image, iterator
     
   def make_parser(self, mode):
     def parser_fn(value):
@@ -83,12 +79,14 @@ class CelebAInput:
 
 
 if __name__=='__main__':
-  celeba = CelebAInput()
-  input_fn = celeba.make_input_fn(mode='train', batch_size=2)
+
+  image, iterator = CelebAInput().input_fn(
+    mode='train', 
+    batch_size=2, 
+    epochs=1)
 
   with tf.Session() as sess:
-    image = input_fn()
-    
+    sess.run(iterator.initializer)
     for i in range(10):
       images = sess.run(image)
       print(images.shape)
