@@ -17,11 +17,6 @@ WIDTH = 64
 CHANNELS = 3
 
 
-def bgan_class():
-  _loss
-  pass
-
-
 class ImageBuffer:
   '''Generated images are added to this buffer
   The discriminator trains on a mix of freshly erated images
@@ -46,36 +41,54 @@ class ImageBuffer:
     return self.buffer[idx]
 
 
-def train(batch_size=256, epochs=10, dim_z=128, buffer_sz=32768):
+def train(batch_size=256, epochs=10, dim_z=128, lr=0.001, buffer_sz=32768):
   dim_h = 128
+
   # placeholders
   z_ph = tf.placeholder(tf.float32, (None, dim_z))
-  D_target_ph = tf.placeholder(tf.float32, (None, 1))
+  D_target_ph = tf.placeholder(tf.float32, ())
   training_ph = tf.placeholder(tf.bool, ())
   
   # build the input image iterator
   image_tens, iterator = CelebAInput().input_fn(
     mode='train', 
-    batch_size=batch_size,
+    batch_size=batch_size//2,
     epochs=epochs)
 
   # discriminator, generator, and generator score
   with tf.variable_scope('models') as scope:
-    D_logits = discriminator(image_tens, training_ph, dim_h=dim_h)
+    D_real = discriminator(image_tens, noise_ph, training_ph, dim_h=dim_h)
     G_image = generator(z_ph, training_ph, dim_h=dim_h)
     scope.reuse_variables()
-    D_fake = discriminator(G_image, training_ph, dim_h=dim_h)
+    D_fake = discriminator(G_image, noise_ph, training_ph, dim_h=dim_h)
 
   # prepare losses
-  #D_loss = tf.nn.softplu-
-  G_loss = tf.reduce_mean(tf.square(D_fake))
+  D_loss = -tf.reduce_mean(
+    D_target_ph*tf.log(D_real) + (1-D_target_ph)*tf.log(1-D_fake))
 
-  # buffer of erated images
-  old_images = ImageBuffer(buffer_sz=buffer_sz)
+  G_loss = 0.5 * tf.reduce_mean(tf.square(
+    tf.log(D_fake) - tf.log(1-D_fake)))
 
-  vars_to_train_dis = np.setdiff1d(
+  # ignore G variables when training D
+  # ignore D variables when training G
+  vars_to_train_D = np.setdiff1d(
     tf.trainable_variables(),
     tf.trainable_variables('models/generator'))
+
+  vars_to_train_G = np.setdiff1d(
+    tf.trainable_variables(),
+    tf.trainable_variables('models/discriminator'))
+
+  # train ops
+  update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+  with tf.control_dependencies(update_ops):
+    D_train = tf.train.SGD(learning_rate=lr).minimize(
+      D_loss, var_list=
+    G_train = tf.train.AdamOptimizer(learning_rate=lr).minimize(
+      G_loss, var_list=vars_to_train_G)
+
+  # buffer of generated images
+  old_images = ImageBuffer(buffer_sz=buffer_sz)
 
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())

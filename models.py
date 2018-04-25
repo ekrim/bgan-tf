@@ -14,7 +14,7 @@ def make_bn(training_ph):
   return bn
 
 
-def discriminator(images, training_ph, dim_h=128):
+def discriminator(images, noise_std_ph, training_ph, dim_h=128):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
@@ -33,14 +33,17 @@ def discriminator(images, training_ph, dim_h=128):
     return tf.nn.leaky_relu(x, alpha=0.01)
 
   with tf.variable_scope('discriminator'):
+    x = tf.add(x, 
+      tf.random_normal(images.get_shape(), mean=0.0, stddev=noise_std_ph))
     x = conv_lrelu(images, dim_h)
     x = bn(conv_lrelu(x, dim_h*2))
     x = bn(conv_lrelu(x, dim_h*4))
     x = bn(conv_lrelu(x, dim_h*8))
     x = tf.reshape(x, [-1, dim_h*8*4*4])
     logits = tf.layers.dense(inputs=x, activation=None, units=1)
+    output = tf.nn.sigmoid(logits)
 
-  return logits
+  return output
 
 
 def generator(input_z, training_ph, dim_h=128):
