@@ -2,12 +2,15 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import os
+import os, shutil
 import glob
 import numpy as np
 import tensorflow as tf
 
 from data_pipeline import CelebAInput
+from utils import ChkptSwap, \
+                  ImageBuffer, \
+                  plot_images
 from models import generator, \
                    discriminator
  
@@ -36,31 +39,11 @@ def noise_std_scheduler(cnt):
     return 0.001
 
 
-class ImageBuffer:
-  '''Generated images are added to this buffer
-  The discriminator trains on a mix of freshly erated images
-  and images from this buffer
-  '''
-  def __init__(self, img_dim, buffer_sz):
-    self.buffer_sz = buffer_sz
-    self.buffer = np.zeros((buffer_sz,)+img_dim, dtype=np.float32)
-    self.cnt = 0 
-  
-  def add(self, x):
-    if self.cnt < self.buffer_sz:
-      n_to_add = min(self.buffer_sz-self.cnt, x.shape[0])
-      self.buffer[self.cnt:self.cnt+n_to_add] = x[:n_to_add]
-      self.cnt += n_to_add
-    else:
-      idx = np.random.choice(self.buffer_sz, x.shape[0], replace=False).sort()
-      self.buffer[idx] = x
-
-  def sample(self, batch_size):
-    idx = np.random.choice(self.cnt, batch_size, replace=True)
-    return self.buffer[idx]
-
-
 def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer_sz=32768, **kwargs):
+
+  if os.path.exists('img'):
+    shutil.rmtree('img')
+  os.mkdir('img')
 
   dim_h = kwargs['dim_h']
   img_dim = kwargs['img_dim']
@@ -95,7 +78,9 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
     tf.log(D_fake) - tf.log(1-D_fake)))
 
   # ignore D variables when training G
-  D_names = [var.name for var in tf.trainable_variables('models/discriminator')]
+  D_vars = tf.trainable_variables('models/discriminator')
+  G_vars = tf.trainable_variables('models/generator')
+  D_names = [var.name for var in D_vars]
   vars_to_train_G = [var for var in tf.trainable_variables() if var.name not in D_names]
 
   # train ops
@@ -106,11 +91,15 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
       G_loss, var_list=vars_to_train_G)
 
   # buffer of generated images
-  old_images = ImageBuffer(img_dim=img_dim, buffer_sz=buffer_sz)
+  image_buffer = ImageBuffer(img_dim=img_dim, buffer_sz=buffer_sz)
 
   with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     sess.run(iterator.initializer)
+
+    # checkpoint swappers
+    D_swap = ChkptSwap(D_vars, 'D') 
+    G_swap = ChkptSwap(G_vars, 'G') 
 
     cnt = 0 
     while True:
@@ -125,28 +114,41 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
               z_ph: np.random.randn(batch_size, dim_z).astype(np.float32),
               training_ph: False})
 
+          if cnt > 100:
+            old_images = image_buffer.sample(batch_size//4)
+            image_batch[:batch_size//4] = old_images
+
         _, D_loss_batch = sess.run(
           [D_train, D_loss],
           feed_dict={
             image_ph: image_batch,
             D_target_ph: prepare_noisy_labels(label, batch_size),
             noise_ph: noise_std_scheduler(cnt), 
-	    z_ph: np.zeros((batch_size, 128), dtype=np.float32),
+            z_ph: np.zeros((batch_size, dim_z), dtype=np.float32),
             training_ph: True})
 
-        _, G_loss_batch = sess.run(
-          [G_train, G_loss],
+        _, G_loss_batch, G_image_batch = sess.run(
+          [G_train, G_loss, G_image],
           feed_dict={
             image_ph: np.zeros((batch_size,)+img_dim).astype(np.float32),
             z_ph: np.random.randn(batch_size, dim_h).astype(np.float32),
             noise_ph: noise_std_scheduler(cnt),
             training_ph: True})
+       
+        image_buffer.add(G_image_batch)
 
-        if cnt%1000==0:
+        if cnt > 50:
+          D_swap.step()
+          G_swap.step()      
+
+        if cnt%10==0:
           print('step {:d} -- G loss: {:0.4f} -- D_loss: {:0.4f}'.format(
             cnt,
             G_loss_batch,
             D_loss_batch))
+ 
+          if cnt%10==0:
+            plot_images(G_image_batch[:16], 'img/img{:06d}.png'.format(cnt))
 
         cnt += 1
 

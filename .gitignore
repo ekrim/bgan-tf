@@ -3,3 +3,5 @@ data/*tfrecords
 __pycache__/
 events*
 *.swp
+chkpts_*/
+img/
