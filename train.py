@@ -19,7 +19,7 @@ INFO = {
   'img_dim': (64, 64, 3),
   'dim_h': 128,
   'batch_size': 256,
-  'epochs': 1,
+  'epochs': 30,
   'lr_G': 0.0001,
   'lr_D': 0.0001}
 
@@ -102,6 +102,7 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
     G_swap = ChkptSwap(G_vars, 'G') 
 
     cnt = 0 
+    D_loss_av, G_loss_av = 0.0, 0.0
     while True:
       try:
         label = 1 if cnt%2==0 else 0
@@ -135,6 +136,9 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
             noise_ph: noise_std_scheduler(cnt),
             training_ph: True})
        
+        D_loss_av += D_loss_batch
+        G_loss_av += G_loss_batch
+
         image_buffer.add(G_image_batch)
 
         if cnt > 50:
@@ -142,13 +146,16 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
           G_swap.step()      
 
         if cnt%10==0:
+          D_loss_av /= 10
+          G_loss_av /= 10
           print('step {:d} -- G loss: {:0.4f} -- D_loss: {:0.4f}'.format(
             cnt,
-            G_loss_batch,
-            D_loss_batch))
+            G_loss_av,
+            D_loss_av))
+          D_loss_av, G_loss_av = 0.0, 0.0 
  
-          if cnt%10==0:
-            plot_images(G_image_batch[:16], 'img/img{:06d}.png'.format(cnt))
+          if cnt%1000==0:
+            plot_images(G_image_batch[:16], 'img/img{:08d}.png'.format(cnt))
 
         cnt += 1
 
