@@ -33,9 +33,9 @@ def discriminator(images, noise_std_ph, training_ph, dim_h=128):
     return tf.nn.leaky_relu(x, alpha=0.01)
 
   with tf.variable_scope('discriminator'):
-    x = tf.add(x, 
-      tf.random_normal(images.get_shape(), mean=0.0, stddev=noise_std_ph))
-    x = conv_lrelu(images, dim_h)
+    x = tf.add(images, 
+      tf.random_normal(tf.shape(images), mean=0.0, stddev=noise_std_ph))
+    x = conv_lrelu(x, dim_h)
     x = bn(conv_lrelu(x, dim_h*2))
     x = bn(conv_lrelu(x, dim_h*4))
     x = bn(conv_lrelu(x, dim_h*8))
@@ -70,7 +70,8 @@ if __name__=="__main__":
   training_ph = tf.placeholder(tf.bool, ())
   x_dis = tf.placeholder(tf.float32, (None, 64, 64, 3))
   x_gen = tf.placeholder(tf.float32, (None, 64))
-  y_dis = discriminator(x_dis, training_ph, 10)
+  noise_ph = tf.placeholder(tf.float32, ())
+  y_dis = discriminator(x_dis, noise_ph, training_ph, 10)
   y_gen = generator(x_gen, training_ph, 4)  
 
   with tf.Session() as sess:
@@ -79,7 +80,7 @@ if __name__=="__main__":
     sess.run(tf.global_variables_initializer())
     x1 = np.random.randn(2,64,64,3).astype(np.float32)
     x2 = np.random.randn(2,64).astype(np.float32)
-    y1 = sess.run(y_dis, feed_dict={x_dis:x1, training_ph:False}) 
+    y1 = sess.run(y_dis, feed_dict={x_dis:x1, training_ph:False, noise_ph:0.05}) 
     y2 = sess.run(y_gen, feed_dict={x_gen:x2, training_ph:False}) 
     print('discriminator output shape:')
     print(y1.shape)
