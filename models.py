@@ -14,7 +14,7 @@ def make_bn(training_ph):
   return bn
 
 
-def discriminator(images, noise_std_ph, training_ph, dim_h=128):
+def discriminator_bgan(images, noise_std_ph, training_ph, dim_h=128):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
@@ -30,7 +30,7 @@ def discriminator(images, noise_std_ph, training_ph, dim_h=128):
       strides=(2,2),
       padding='same')
 
-    return tf.nn.leaky_relu(x, alpha=0.01)
+    return tf.nn.leaky_relu(x, alpha=0.2)
 
   with tf.variable_scope('discriminator'):
     x = tf.add(images, 
@@ -46,7 +46,7 @@ def discriminator(images, noise_std_ph, training_ph, dim_h=128):
   return output
 
 
-def generator(input_z, training_ph, dim_h=128):
+def generator_bgan(input_z, training_ph, dim_h=128):
   '''Implemented https://github.com/rdevon/BGAN/blob/master/models/dcgan_64_pub.py in TensorFlow
     
   NOTE: with batchnorm, put the train op within controlled
@@ -64,6 +64,19 @@ def generator(input_z, training_ph, dim_h=128):
     x = tf.nn.tanh(x)
 
   return x
+
+
+
+def generator_dcgan(input_z, training_ph, dim_h=100):
+  '''generator as described in the original DCGAN paper
+  https://arxiv.org/pdf/1511.06434.pdf
+  '''
+  bn = make_bn(training_ph)
+
+  with tf.variable_scope('generator'):
+    x = bn(tf.layers.dense(inputs=input_z, units=4*4*1024))
+    x = tf.reshape(x, [-1, 4, 4, 1024])
+    x = bn(tf.layers.conv2d_transpose(x, 512, 5, strides=2, padding='same'))
 
 
 if __name__=="__main__":
