@@ -1,5 +1,4 @@
-data/img_align_celeba/
-data/*tfrecords
+data/
 __pycache__/
 events*
 *.swp
