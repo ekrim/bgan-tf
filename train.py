@@ -11,8 +11,8 @@ from data_pipeline import CelebAInput
 from utils import ChkptSwap, \
                   ImageBuffer, \
                   plot_images
-from models import generator, \
-                   discriminator
+from models import generator_bgan, \
+                   discriminator_bgan
  
 
 INFO = {
@@ -65,10 +65,10 @@ def train(batch_size=256, epochs=10, dim_z=128, lr_D=0.0001, lr_G=0.0001, buffer
 
   # discriminator, generator, and generator score
   with tf.variable_scope('models') as scope:
-    D_out = discriminator(image_ph, noise_ph, training_ph, dim_h=dim_h)
-    G_image = generator(z_ph, training_ph, dim_h=dim_h)
+    D_out = discriminator_bgan(image_ph, noise_ph, training_ph, dim_h=dim_h)
+    G_image = generator_bgan(z_ph, training_ph, dim_h=dim_h)
     scope.reuse_variables()
-    D_fake = discriminator(G_image, noise_ph, training_ph, dim_h=dim_h)
+    D_fake = discriminator_bgan(G_image, noise_ph, training_ph, dim_h=dim_h)
 
   # prepare losses
   D_loss = -tf.reduce_mean(

@@ -66,7 +66,6 @@ def generator_bgan(input_z, training_ph, dim_h=128):
   return x
 
 
-
 def generator_dcgan(input_z, training_ph, dim_h=100):
   '''generator as described in the original DCGAN paper
   https://arxiv.org/pdf/1511.06434.pdf
@@ -84,8 +83,8 @@ if __name__=="__main__":
   x_dis = tf.placeholder(tf.float32, (None, 64, 64, 3))
   x_gen = tf.placeholder(tf.float32, (None, 64))
   noise_ph = tf.placeholder(tf.float32, ())
-  y_dis = discriminator(x_dis, noise_ph, training_ph, 10)
-  y_gen = generator(x_gen, training_ph, 4)  
+  y_dis = discriminator_bgan(x_dis, noise_ph, training_ph, 10)
+  y_gen = generator_bgan(x_gen, training_ph, 4)  
 
   with tf.Session() as sess:
     tf.summary.FileWriter('./', sess.graph).close()
